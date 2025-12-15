@@ -51,7 +51,7 @@ func NewGroup[K comparable, V any]() *Group[K, V] {
 // Do executes and returns the results of the given function, making
 // sure that only one execution is in-flight for a given key at a
 // time.
-func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context) (V, error)) (v V, shared bool, err error) {
+func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context) (V, error)) (v V, err error, shared bool) {
 	g.mu.Lock()
 	if g.calls == nil {
 		g.calls = make(map[K]*call[V])
@@ -72,9 +72,9 @@ func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context
 			if c.panicErr != nil {
 				panic(c.panicErr)
 			}
-			return c.val, true, c.err
+			return c.val, c.err, true
 		case <-ctx.Done():
-			return *new(V), true, ctx.Err()
+			return *new(V), ctx.Err(), true
 		}
 	}
 
@@ -119,7 +119,7 @@ func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context
 		panic(c.panicErr)
 	}
 
-	return val, c.dups > 0, err
+	return val, err, c.dups > 0
 }
 
 // doCall handles the execution of the user function.

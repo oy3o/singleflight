@@ -78,7 +78,7 @@ func main() {
 
 	// Do executes the function. If multiple goroutines call this with "1001",
 	// only one function execution will happen.
-	user, shared, err := g.Do(ctx, userID, func(ctx context.Context) (*User, error) {
+	user, err, shared := g.Do(ctx, userID, func(ctx context.Context) (*User, error) {
 		// Simulate DB call
 		return getUserFromDB(ctx, userID)
 	})
