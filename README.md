@@ -34,12 +34,12 @@ The standard `golang.org/x/sync/singleflight` is battle-tested but suffers from 
 Benchmarks were conducted on an Intel Core i9-13900HX.
 
 ```text
-BenchmarkSingleflight_ThunderingHerd_Std-8          8140            140548 ns/op              12 B/op           0 allocs/op
-BenchmarkSingleflight_ThunderingHerd_Moon-8         8272            140627 ns/op              22 B/op           0 allocs/op
-BenchmarkSingleflight_RandomKeys_Std-8              8239            143672 ns/op              96 B/op           2 allocs/op
-BenchmarkSingleflight_RandomKeys_Moon-8             8103            141336 ns/op               0 B/op           0 allocs/op
-BenchmarkSingleflight_Overhead_Std-8             6176953               187.2 ns/op            75 B/op           0 allocs/op
-BenchmarkSingleflight_Overhead_Moon-8            9311538               135.8 ns/op             3 B/op           0 allocs/op
+Benchmark_ThunderingHerd_Std-8      8108        140337 ns/op        12 B/op     0 allocs/op
+Benchmark_ThunderingHerd_Moon-8     7903        141501 ns/op        22 B/op     0 allocs/op
+Benchmark_RandomKeys_Std-8          8095        142929 ns/op        96 B/op     2 allocs/op
+Benchmark_RandomKeys_Moon-8         8157        141236 ns/op         0 B/op     0 allocs/op
+Benchmark_Overhead_Std-8            6059726      190.0 ns/op        75 B/op     0 allocs/op
+Benchmark_Overhead_Moon-8           8650653      140.6 ns/op         3 B/op     0 allocs/op
 ```
 
 *   **RandomKeys (High Entropy)**: Simulates a cache-miss scenario where every request is unique. Moonlight achieves **Zero Allocation** by combining `sync.Pool` with a lazy-initialization strategy, reusing `call` objects safely.

@@ -27,7 +27,7 @@ func expensiveWork() (string, error) {
 // 所有并发请求都打同一个 Key，测试锁竞争和 WaitGroup 的唤醒性能
 // -----------------------------------------------------------------------------
 
-func BenchmarkSingleflight_ThunderingHerd_Std(b *testing.B) {
+func Benchmark_ThunderingHerd_Std(b *testing.B) {
 	var g singleflight.Group
 	key := "hot_key"
 
@@ -46,7 +46,7 @@ func BenchmarkSingleflight_ThunderingHerd_Std(b *testing.B) {
 	})
 }
 
-func BenchmarkSingleflight_ThunderingHerd_Moon(b *testing.B) {
+func Benchmark_ThunderingHerd_Moon(b *testing.B) {
 	// 假设我们在同一个包下，或者已经正确引用了 Generic Group
 	var g Group[string, string]
 	key := "hot_key"
@@ -71,7 +71,7 @@ func BenchmarkSingleflight_ThunderingHerd_Moon(b *testing.B) {
 // 这是标准库 sync.Mutex 最痛的地方
 // -----------------------------------------------------------------------------
 
-func BenchmarkSingleflight_RandomKeys_Std(b *testing.B) {
+func Benchmark_RandomKeys_Std(b *testing.B) {
 	var g singleflight.Group
 	// 预生成 Key 避免 benchmark 中包含 fmt.Sprintf 的开销
 	keys := make([]string, b.N)
@@ -99,7 +99,7 @@ func BenchmarkSingleflight_RandomKeys_Std(b *testing.B) {
 	})
 }
 
-func BenchmarkSingleflight_RandomKeys_Moon(b *testing.B) {
+func Benchmark_RandomKeys_Moon(b *testing.B) {
 	var g Group[string, string]
 	keys := make([]string, b.N)
 	for i := 0; i < b.N; i++ {
@@ -129,7 +129,7 @@ func BenchmarkSingleflight_RandomKeys_Moon(b *testing.B) {
 // 只有计算，没有 Sleep，测试纯粹的框架开销
 // -----------------------------------------------------------------------------
 
-func BenchmarkSingleflight_Overhead_Std(b *testing.B) {
+func Benchmark_Overhead_Std(b *testing.B) {
 	var g singleflight.Group
 	key := "fast_key"
 
@@ -143,7 +143,7 @@ func BenchmarkSingleflight_Overhead_Std(b *testing.B) {
 	})
 }
 
-func BenchmarkSingleflight_Overhead_Moon(b *testing.B) {
+func Benchmark_Overhead_Moon(b *testing.B) {
 	var g Group[string, string]
 	key := "fast_key"
 
