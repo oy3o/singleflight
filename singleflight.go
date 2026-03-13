@@ -67,15 +67,22 @@ func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context
 		done := c.done
 		g.mu.Unlock()
 
-		select {
-		case <-done:
-			if c.panicErr != nil {
-				panic(c.panicErr)
+		// ⚡ Bolt: Fast-path for non-cancelable contexts (like context.Background()).
+		// Bypassing the select statement avoids runtime overhead.
+		if ctx.Done() == nil {
+			<-done
+		} else {
+			select {
+			case <-done:
+			case <-ctx.Done():
+				return *new(V), ctx.Err(), true
 			}
-			return c.val, c.err, true
-		case <-ctx.Done():
-			return *new(V), ctx.Err(), true
 		}
+
+		if c.panicErr != nil {
+			panic(c.panicErr)
+		}
+		return c.val, c.err, true
 	}
 
 	// 2. Start new call (Leader)
