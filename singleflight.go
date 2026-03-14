@@ -137,13 +137,18 @@ func (g *Group[K, V]) doCall(c *call[V], key K, fn func(context.Context) (V, err
 		}
 
 		g.mu.Lock()
-		if c.done != nil {
-			close(c.done)
-		}
 		if !c.forgotten {
 			delete(g.calls, key)
 		}
+		// ⚡ Bolt: Close the channel OUTSIDE the critical section.
+		// Waking up potentially thousands of goroutines triggers Go's scheduler.
+		// Doing this under the lock significantly increases lock contention.
+		done := c.done
 		g.mu.Unlock()
+
+		if done != nil {
+			close(done)
+		}
 	}()
 
 	c.val, c.err = fn(ctx)
