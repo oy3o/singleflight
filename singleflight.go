@@ -40,11 +40,6 @@ type call[V any] struct {
 func NewGroup[K comparable, V any]() *Group[K, V] {
 	return &Group[K, V]{
 		calls: make(map[K]*call[V]),
-		pool: sync.Pool{
-			New: func() any {
-				return new(call[V])
-			},
-		},
 	}
 }
 
@@ -86,10 +81,9 @@ func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context
 	}
 
 	// 2. Start new call (Leader)
-	var c *call[V]
-	if val := g.pool.Get(); val != nil {
-		c = val.(*call[V])
-	} else {
+	// ⚡ Bolt: Retrieve from pool and avoid interface conversion overhead when nil
+	c, _ := g.pool.Get().(*call[V])
+	if c == nil {
 		c = new(call[V])
 	}
 
