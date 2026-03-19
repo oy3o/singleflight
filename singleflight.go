@@ -69,12 +69,12 @@ func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context
 
 		// ⚡ Bolt: Fast-path for non-cancelable contexts (like context.Background()).
 		// Bypassing the select statement avoids runtime overhead.
-		if ctx.Done() == nil {
+		if doneCh := ctx.Done(); doneCh == nil {
 			<-done
 		} else {
 			select {
 			case <-done:
-			case <-ctx.Done():
+			case <-doneCh:
 				return *new(V), ctx.Err(), true
 			}
 		}
