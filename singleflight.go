@@ -47,6 +47,12 @@ func NewGroup[K comparable, V any]() *Group[K, V] {
 // sure that only one execution is in-flight for a given key at a
 // time.
 func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context) (V, error)) (v V, err error, shared bool) {
+	// ⚡ Bolt: Early return for canceled contexts avoids unnecessary lock acquisition.
+	if err := ctx.Err(); err != nil {
+		var zero V
+		return zero, err, false
+	}
+
 	g.mu.Lock()
 	if g.calls == nil {
 		g.calls = make(map[K]*call[V])
