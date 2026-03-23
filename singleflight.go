@@ -7,117 +7,121 @@ import (
 	"sync"
 )
 
-// Group represents a class of work and forms a namespace in
-// which units of work can be executed with duplicate suppression.
-//
-// It provides a generic, type-safe, and zero-allocation (in steady state)
-// implementation of the singleflight pattern.
+// Group 是 singleflight 的泛型实现，支持零值初始化。
+// 相比标准库 x/sync/singleflight，提供三个差异化能力：
+//   - 泛型：消除 interface{} 的装箱/断言开销
+//   - Context：Follower 可因 context 取消而提前退出
+//   - sync.Pool：在无 Follower 的快路径上复用 call 对象
 type Group[K comparable, V any] struct {
-	calls map[K]*call[V]
 	mu    sync.Mutex
+	calls map[K]*call[V]
 	pool  sync.Pool
 }
 
-// call stores information about a single function call.
 type call[V any] struct {
 	val V
 	err error
 
-	// panicErr holds the panic value if the function panicked.
 	panicErr *panicError
 
-	// done is lazily initialized. It remains nil for non-shared calls.
+	// done 仅在有 Follower 加入时才分配（懒初始化）。
+	// Leader 独占时保持 nil，避免 channel 分配（~96 bytes）。
 	done chan struct{}
 
-	// dups counts the number of waiters.
 	dups int
 
-	// forgotten indicates if Forget was called.
+	// shared 在持锁期间由 doCall 设置，
+	// 避免 Leader 返回时无锁读 dups 导致的 data race。
+	shared bool
+
 	forgotten bool
 }
 
-// NewGroup creates a new Group.
-func NewGroup[K comparable, V any]() *Group[K, V] {
-	return &Group[K, V]{
-		calls: make(map[K]*call[V]),
-	}
-}
+// Do 对同一个 key 只允许一个 fn 在执行（Leader），
+// 后续调用者（Follower）阻塞等待并共享结果。
+//
+// shared 表示结果是否被多个调用者共享。
+func (g *Group[K, V]) Do(
+	ctx context.Context,
+	key K,
+	fn func(ctx context.Context) (V, error),
+) (v V, err error, shared bool) {
 
-// Do executes and returns the results of the given function, making
-// sure that only one execution is in-flight for a given key at a
-// time.
-func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context) (V, error)) (v V, err error, shared bool) {
-	// ⚡ Bolt: Early return for canceled contexts avoids unnecessary lock acquisition.
+	// 已取消的 context 不值得进入临界区。
 	if err := ctx.Err(); err != nil {
 		var zero V
 		return zero, err, false
 	}
 
 	g.mu.Lock()
+
+	// 支持零值初始化：首次使用时分配 map。
 	if g.calls == nil {
 		g.calls = make(map[K]*call[V])
 	}
 
-	// 1. Join existing call (Follower)
+	// Follower 路径
 	if c, ok := g.calls[key]; ok {
 		c.dups++
-		// Lazy Init Channel for Followers
 		if c.done == nil {
 			c.done = make(chan struct{})
 		}
 		done := c.done
 		g.mu.Unlock()
 
-		// ⚡ Bolt: Fast-path for non-cancelable contexts (like context.Background()).
-		// Bypassing the select statement avoids runtime overhead.
+		// context.Background() 的 Done() 返回 nil，
+		// 直接 <-done 跳过 select 的调度开销。
 		if doneCh := ctx.Done(); doneCh == nil {
 			<-done
 		} else {
 			select {
 			case <-done:
 			case <-doneCh:
-				// ⚡ Bolt: `var zero V` avoids implicit runtime allocation when V is an interface type compared to `*new(V)`
+				// Follower 提前退出，必须递减 dups，
+				// 否则 Leader 的 shared 判断和 pool 回收逻辑都会出错。
+				g.mu.Lock()
+				c.dups--
+				g.mu.Unlock()
 				var zero V
 				return zero, ctx.Err(), true
 			}
 		}
 
+		// panic 必须传播给每个 Follower，保持与标准库一致的语义。
 		if c.panicErr != nil {
 			panic(c.panicErr)
 		}
 		return c.val, c.err, true
 	}
 
-	// 2. Start new call (Leader)
-	// ⚡ Bolt: Avoid allocating a new func on sync.Pool.New by just casting the Get() directly and falling back to new().
+	//  Leader 路径
+
+	// 从 pool 复用 call 对象。不设置 pool.New，
+	// 因为 Get 返回 nil 时直接 new 比闭包更轻。
 	c, _ := g.pool.Get().(*call[V])
 	if c == nil {
 		c = new(call[V])
 	}
-
-	// Reset state
 	c.dups = 0
 	c.forgotten = false
 	c.panicErr = nil
-	// c.done is guaranteed to be nil here from recycling logic
+	c.shared = false
+	// c.done 在回收前已被置为 nil，无需重置。
 
 	g.calls[key] = c
 	g.mu.Unlock()
 
-	// Execute Synchronously
 	g.doCall(c, key, fn, ctx)
 
-	// 3. Leader Return & Recycle logic
 	val := c.val
 	err = c.err
+	shared = c.shared
 	panicked := c.panicErr != nil
 
-	// We can ONLY recycle if:
-	// 1. No panic occurred (safety first).
-	// 2. No followers joined (dups == 0).
-	// 3. No channel was created (done == nil).
+	// 仅当无 Follower 且无 panic 时回收。
+	// 有 Follower 意味着 done channel 已分配且 Follower 可能仍在读 c.val，
+	// 此时回收会导致 use-after-free。
 	if !panicked && c.dups == 0 && c.done == nil {
-		// Zero out fields to prevent memory leaks
 		var zero V
 		c.val = zero
 		c.err = nil
@@ -128,11 +132,15 @@ func (g *Group[K, V]) Do(ctx context.Context, key K, fn func(ctx context.Context
 		panic(c.panicErr)
 	}
 
-	return val, err, c.dups > 0
+	return val, err, shared
 }
 
-// doCall handles the execution of the user function.
-func (g *Group[K, V]) doCall(c *call[V], key K, fn func(context.Context) (V, error), ctx context.Context) {
+func (g *Group[K, V]) doCall(
+	c *call[V],
+	key K,
+	fn func(context.Context) (V, error),
+	ctx context.Context,
+) {
 	defer func() {
 		if r := recover(); r != nil {
 			c.panicErr = &panicError{value: r, stack: debug.Stack()}
@@ -142,12 +150,14 @@ func (g *Group[K, V]) doCall(c *call[V], key K, fn func(context.Context) (V, err
 		if !c.forgotten {
 			delete(g.calls, key)
 		}
-		// ⚡ Bolt: Close the channel OUTSIDE the critical section.
-		// Waking up potentially thousands of goroutines triggers Go's scheduler.
-		// Doing this under the lock significantly increases lock contention.
+		// 在锁内捕获 shared 状态，
+		// 防止 Leader 返回路径无锁读 dups 产生 data race。
+		c.shared = c.dups > 0
 		done := c.done
 		g.mu.Unlock()
 
+		// close 放在锁外：唤醒大量 Follower 会触发调度器，
+		// 在锁内做会严重放大锁持有时间。
 		if done != nil {
 			close(done)
 		}
@@ -156,7 +166,8 @@ func (g *Group[K, V]) doCall(c *call[V], key K, fn func(context.Context) (V, err
 	c.val, c.err = fn(ctx)
 }
 
-// Forget tells the singleflight to forget about a key.
+// Forget 使 Group 忘记指定 key。
+// 下一次对该 key 的 Do 调用将执行 fn 而非等待先前的调用。
 func (g *Group[K, V]) Forget(key K) {
 	g.mu.Lock()
 	if c, ok := g.calls[key]; ok {
@@ -166,7 +177,8 @@ func (g *Group[K, V]) Forget(key K) {
 	g.mu.Unlock()
 }
 
-// panicError wraps a panic value and its stack trace.
+// panicError 包装 panic 值和调用栈，
+// 使 Follower 收到的 panic 包含原始现场信息而非二次 panic 的栈。
 type panicError struct {
 	value any
 	stack []byte
@@ -176,6 +188,7 @@ func (p *panicError) Error() string {
 	return fmt.Sprintf("%v\n\n%s", p.value, p.stack)
 }
 
+// Unwrap 允许 errors.Is / errors.As 穿透到原始 error。
 func (p *panicError) Unwrap() error {
 	err, ok := p.value.(error)
 	if !ok {
