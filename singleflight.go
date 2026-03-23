@@ -19,13 +19,15 @@ type Group[K comparable, V any] struct {
 }
 
 type call[V any] struct {
+	wg sync.WaitGroup
+
 	val V
 	err error
 
 	panicErr *panicError
 
-	// done 仅在有 Follower 加入时才分配（懒初始化）。
-	// Leader 独占时保持 nil，避免 channel 分配（~96 bytes）。
+	// done 仅在有可取消 context 的 Follower 加入时才分配（懒初始化）。
+	// Leader 独占或仅有 Background context 时保持 nil，避免 channel 分配（~96 bytes）。
 	done chan struct{}
 
 	dups int
@@ -63,17 +65,19 @@ func (g *Group[K, V]) Do(
 	// Follower 路径
 	if c, ok := g.calls[key]; ok {
 		c.dups++
-		if c.done == nil {
-			c.done = make(chan struct{})
-		}
-		done := c.done
-		g.mu.Unlock()
 
 		// context.Background() 的 Done() 返回 nil，
-		// 直接 <-done 跳过 select 的调度开销。
+		// 此时无须支持 context 取消，直接使用 WaitGroup 等待，完全避免 channel 分配。
 		if doneCh := ctx.Done(); doneCh == nil {
-			<-done
+			g.mu.Unlock()
+			c.wg.Wait()
 		} else {
+			if c.done == nil {
+				c.done = make(chan struct{})
+			}
+			done := c.done
+			g.mu.Unlock()
+
 			select {
 			case <-done:
 			case <-doneCh:
@@ -102,6 +106,7 @@ func (g *Group[K, V]) Do(
 	if c == nil {
 		c = new(call[V])
 	}
+	c.wg.Add(1)
 	c.dups = 0
 	c.forgotten = false
 	c.panicErr = nil
@@ -156,11 +161,11 @@ func (g *Group[K, V]) doCall(
 		done := c.done
 		g.mu.Unlock()
 
-		// close 放在锁外：唤醒大量 Follower 会触发调度器，
-		// 在锁内做会严重放大锁持有时间。
+		// 唤醒大量 Follower 会触发调度器，必须放在锁外。
 		if done != nil {
 			close(done)
 		}
+		c.wg.Done()
 	}()
 
 	c.val, c.err = fn(ctx)
