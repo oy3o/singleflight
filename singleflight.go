@@ -57,11 +57,6 @@ func (g *Group[K, V]) Do(
 
 	g.mu.Lock()
 
-	// 支持零值初始化：首次使用时分配 map。
-	if g.calls == nil {
-		g.calls = make(map[K]*call[V])
-	}
-
 	// Follower 路径
 	if c, ok := g.calls[key]; ok {
 		c.dups++
@@ -99,6 +94,11 @@ func (g *Group[K, V]) Do(
 	}
 
 	//  Leader 路径
+
+	// 支持零值初始化：首次使用时分配 map。
+	if g.calls == nil {
+		g.calls = make(map[K]*call[V])
+	}
 
 	// 从 pool 复用 call 对象。不设置 pool.New，
 	// 因为 Get 返回 nil 时直接 new 比闭包更轻。
