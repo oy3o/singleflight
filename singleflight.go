@@ -57,11 +57,6 @@ func (g *Group[K, V]) Do(
 
 	g.mu.Lock()
 
-	// 支持零值初始化：首次使用时分配 map。
-	if g.calls == nil {
-		g.calls = make(map[K]*call[V])
-	}
-
 	// Follower 路径
 	if c, ok := g.calls[key]; ok {
 		c.dups++
@@ -113,6 +108,10 @@ func (g *Group[K, V]) Do(
 	c.shared = false
 	// c.done 在回收前已被置为 nil，无需重置。
 
+	// 支持零值初始化：延迟到写路径分配 map，利用 runtime 的 nil map 安全读特性优化热路径。
+	if g.calls == nil {
+		g.calls = make(map[K]*call[V])
+	}
 	g.calls[key] = c
 	g.mu.Unlock()
 

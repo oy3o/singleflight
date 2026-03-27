@@ -5,3 +5,7 @@
 ## 2024-05-24 - Zero Allocation WaitGroup vs Channel
 **Learning:** For wait groups in highly-contended scenarios, allocating a `chan struct{}` on the heap accounts for a measurable percentage of memory allocation on hot paths (nearly 5% memory usage from `make(chan struct{})`). When `context.Background()` or an uncancellable context is used, `ctx.Done() == nil`, allowing a `select` statement to be bypassed completely and avoiding the need for a channel.
 **Action:** When synchronization is required but context cancellation is optional or unused, use an embedded `sync.WaitGroup` directly in the object struct and fallback to `chan struct{}` only when `ctx.Done() != nil`. This removes allocation completely on the fast path.
+
+## 2024-05-31 - Leveraging Safe Nil Map Reads in Hot Paths
+**Learning:** In high-performance Go code, explicit `if map == nil { map = make(...) }` checks on hot read paths introduce unnecessary branch prediction overhead. The Go runtime correctly returns the zero-value and `false` for reads on a `nil` map, allowing us to safely skip the check entirely on the read path.
+**Action:** When implementing lazy initialization for maps, rely on the runtime's safe `nil` map read behavior. Defer the actual map initialization exclusively to the write path (just before the first insertion).
