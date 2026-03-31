@@ -126,7 +126,8 @@ func (g *Group[K, V]) Do(
 	// 仅当无 Follower 且无 panic 时回收。
 	// 有 Follower 意味着 done channel 已分配且 Follower 可能仍在读 c.val，
 	// 此时回收会导致 use-after-free。
-	if !panicked && c.dups == 0 && c.done == nil {
+	// 使用 !shared 避免对 c.dups 的内存重读。
+	if !panicked && !shared && c.done == nil {
 		var zero V
 		c.val = zero
 		c.err = nil
@@ -177,8 +178,8 @@ func (g *Group[K, V]) Forget(key K) {
 	g.mu.Lock()
 	if c, ok := g.calls[key]; ok {
 		c.forgotten = true
+		delete(g.calls, key)
 	}
-	delete(g.calls, key)
 	g.mu.Unlock()
 }
 
