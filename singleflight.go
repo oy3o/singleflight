@@ -104,13 +104,16 @@ func (g *Group[K, V]) Do(
 	// 因为 Get 返回 nil 时直接 new 比闭包更轻。
 	c, _ := g.pool.Get().(*call[V])
 	if c == nil {
+		// ⚡ Bolt: newly allocated objects are already zero-initialized by Go.
 		c = new(call[V])
+	} else {
+		// ⚡ Bolt: Only reset fields if we're reusing an object from the pool.
+		c.dups = 0
+		c.forgotten = false
+		c.panicErr = nil
+		c.shared = false
 	}
 	c.wg.Add(1)
-	c.dups = 0
-	c.forgotten = false
-	c.panicErr = nil
-	c.shared = false
 	// c.done 在回收前已被置为 nil，无需重置。
 
 	g.calls[key] = c
