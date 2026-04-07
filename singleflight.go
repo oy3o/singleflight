@@ -105,12 +105,15 @@ func (g *Group[K, V]) Do(
 	c, _ := g.pool.Get().(*call[V])
 	if c == nil {
 		c = new(call[V])
+	} else {
+		// 仅对池中取出的对象重置字段
+		// 新建的对象已经在堆上零值初始化，无需重复赋值
+		c.dups = 0
+		c.forgotten = false
+		c.panicErr = nil
+		c.shared = false
 	}
 	c.wg.Add(1)
-	c.dups = 0
-	c.forgotten = false
-	c.panicErr = nil
-	c.shared = false
 	// c.done 在回收前已被置为 nil，无需重置。
 
 	g.calls[key] = c
