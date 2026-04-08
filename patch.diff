@@ -1,0 +1,11 @@
+--- singleflight.go
++++ singleflight.go
+@@ -106,7 +106,7 @@
+	if c == nil {
+		c = new(call[V])
+	} else {
+-		// 仅在复用时重置，新分配的对象本身就是零值。
++		// 仅在复用时重置，新分配的对象本身就是零值，避免多余的写内存操作。
+		c.dups = 0
+		c.forgotten = false
+		c.panicErr = nil
