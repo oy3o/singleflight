@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2026-04-02 - Redundant Zero Initialization for sync.Pool Allocations
+**Learning:** In Go, newly allocated objects (`new(T)`) are automatically zero-initialized by the runtime. When using a `sync.Pool`, indiscriminately applying manual reset assignments (e.g., `c.dups = 0`, `c.shared = false`) to all objects retrieved from the pool redundantly assigns zero values to newly allocated objects on cold paths, causing unnecessary write operations.
+**Action:** When retrieving objects from a `sync.Pool` using the fast path (checking for `nil` return), only apply manual state resets inside the `else` block (when an object is actually retrieved from the pool). Let Go handle the zero-initialization for `new(T)`.
