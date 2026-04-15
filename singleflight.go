@@ -105,13 +105,16 @@ func (g *Group[K, V]) Do(
 	c, _ := g.pool.Get().(*call[V])
 	if c == nil {
 		c = new(call[V])
+	} else {
+		// Rely on Go's automatic zero initialization for new(call[V]).
+		// Only reset fields when reusing an object from the pool.
+		c.dups = 0
+		c.forgotten = false
+		c.panicErr = nil
+		c.shared = false
+		// c.done 在回收前已被置为 nil，无需重置。
 	}
 	c.wg.Add(1)
-	c.dups = 0
-	c.forgotten = false
-	c.panicErr = nil
-	c.shared = false
-	// c.done 在回收前已被置为 nil，无需重置。
 
 	g.calls[key] = c
 	g.mu.Unlock()
