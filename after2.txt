@@ -1,0 +1,36 @@
+goos: linux
+goarch: amd64
+pkg: github.com/oy3o/singleflight
+cpu: Intel(R) Xeon(R) Processor @ 2.30GHz
+Benchmark_ThunderingHerd_Std-4    	    4138	    296470 ns/op	      24 B/op	       0 allocs/op
+Benchmark_ThunderingHerd_Std-4    	    3981	    297835 ns/op	      24 B/op	       0 allocs/op
+Benchmark_ThunderingHerd_Std-4    	    4092	    294050 ns/op	      24 B/op	       0 allocs/op
+Benchmark_ThunderingHerd_Std-4    	    4070	    295079 ns/op	      24 B/op	       0 allocs/op
+Benchmark_ThunderingHerd_Std-4    	    3962	    296139 ns/op	      24 B/op	       0 allocs/op
+Benchmark_ThunderingHerd_Moon-4   	    3870	    296632 ns/op	      20 B/op	       0 allocs/op
+Benchmark_ThunderingHerd_Moon-4   	    3934	    293284 ns/op	      20 B/op	       0 allocs/op
+Benchmark_ThunderingHerd_Moon-4   	    4002	    296430 ns/op	      20 B/op	       0 allocs/op
+Benchmark_ThunderingHerd_Moon-4   	    4108	    294690 ns/op	      20 B/op	       0 allocs/op
+Benchmark_ThunderingHerd_Moon-4   	    4075	    290601 ns/op	      20 B/op	       0 allocs/op
+Benchmark_RandomKeys_Std-4        	    4063	    293710 ns/op	      96 B/op	       2 allocs/op
+Benchmark_RandomKeys_Std-4        	    4105	    293952 ns/op	      96 B/op	       2 allocs/op
+Benchmark_RandomKeys_Std-4        	    3972	    292890 ns/op	      96 B/op	       2 allocs/op
+Benchmark_RandomKeys_Std-4        	    4047	    296411 ns/op	      96 B/op	       2 allocs/op
+Benchmark_RandomKeys_Std-4        	    4112	    293792 ns/op	      96 B/op	       2 allocs/op
+Benchmark_RandomKeys_Moon-4       	    4126	    292209 ns/op	       0 B/op	       0 allocs/op
+Benchmark_RandomKeys_Moon-4       	    4015	    293126 ns/op	       0 B/op	       0 allocs/op
+Benchmark_RandomKeys_Moon-4       	    4117	    292587 ns/op	       0 B/op	       0 allocs/op
+Benchmark_RandomKeys_Moon-4       	    4054	    290593 ns/op	       0 B/op	       0 allocs/op
+Benchmark_RandomKeys_Moon-4       	    4114	    296409 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Overhead_Std-4          	 3984207	       297.9 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Std-4          	 4132112	       294.4 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Std-4          	 3928695	       289.8 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Std-4          	 4064684	       293.6 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Std-4          	 4029100	       296.6 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4         	 5585638	       215.0 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4         	 5559860	       213.6 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4         	 5650498	       212.7 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4         	 5567008	       214.0 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4         	 5545651	       213.0 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/oy3o/singleflight	39.065s

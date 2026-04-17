@@ -1,0 +1,158 @@
+<<<<<<< SEARCH
+	// shared 在持锁期间由 doCall 设置，
+	// 避免 Leader 返回时无锁读 dups 导致的 data race。
+	shared bool
+
+	forgotten bool
+}
+=======
+	forgotten bool
+}
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+	// 从 pool 复用 call 对象。不设置 pool.New，
+	// 因为 Get 返回 nil 时直接 new 比闭包更轻。
+	c, _ := g.pool.Get().(*call[V])
+	if c == nil {
+		c = new(call[V])
+	} else {
+		// 仅对复用的对象重置状态，新分配的对象本身就是零值
+		c.dups = 0
+		c.forgotten = false
+		c.panicErr = nil
+		c.shared = false
+	}
+	c.wg.Add(1)
+=======
+	// 从 pool 复用 call 对象。不设置 pool.New，
+	// 因为 Get 返回 nil 时直接 new 比闭包更轻。
+	c, _ := g.pool.Get().(*call[V])
+	if c == nil {
+		c = new(call[V])
+	} else {
+		// 仅对复用的对象重置状态，新分配的对象本身就是零值
+		c.dups = 0
+		c.forgotten = false
+		c.panicErr = nil
+	}
+	c.wg.Add(1)
+>>>>>>> REPLACE
+<<<<<<< SEARCH
+	g.calls[key] = c
+	g.mu.Unlock()
+
+	g.doCall(c, key, fn, ctx)
+
+	val := c.val
+	err = c.err
+	shared = c.shared
+	panicked := c.panicErr != nil
+
+	// 仅当无 Follower 且无 panic 时回收。
+	// 有 Follower 意味着 done channel 已分配且 Follower 可能仍在读 c.val，
+	// 此时回收会导致 use-after-free。
+	// 使用 !shared 避免对 c.dups 的内存重读。
+	if !panicked && !shared && c.done == nil {
+		var zero V
+		c.val = zero
+		c.err = nil
+		g.pool.Put(c)
+	}
+
+	if panicked {
+		panic(c.panicErr)
+	}
+
+	return val, err, shared
+}
+
+func (g *Group[K, V]) doCall(
+	c *call[V],
+	key K,
+	fn func(context.Context) (V, error),
+	ctx context.Context,
+) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.panicErr = &panicError{value: r, stack: debug.Stack()}
+		}
+
+		g.mu.Lock()
+		if !c.forgotten {
+			delete(g.calls, key)
+		}
+		// 在锁内捕获 shared 状态，
+		// 防止 Leader 返回路径无锁读 dups 产生 data race。
+		c.shared = c.dups > 0
+		done := c.done
+		g.mu.Unlock()
+
+		// 唤醒大量 Follower 会触发调度器，必须放在锁外。
+		if done != nil {
+			close(done)
+		}
+		c.wg.Done()
+	}()
+
+	c.val, c.err = fn(ctx)
+}
+=======
+	g.calls[key] = c
+	g.mu.Unlock()
+
+	shared, doneNil := g.doCall(c, key, fn, ctx)
+
+	val := c.val
+	err = c.err
+	panicked := c.panicErr != nil
+
+	// 仅当无 Follower 且无 panic 时回收。
+	// 有 Follower 意味着 done channel 已分配且 Follower 可能仍在读 c.val，
+	// 此时回收会导致 use-after-free。
+	if !panicked && !shared && doneNil {
+		var zero V
+		c.val = zero
+		c.err = nil
+		g.pool.Put(c)
+	}
+
+	if panicked {
+		panic(c.panicErr)
+	}
+
+	return val, err, shared
+}
+
+func (g *Group[K, V]) doCall(
+	c *call[V],
+	key K,
+	fn func(context.Context) (V, error),
+	ctx context.Context,
+) (shared bool, doneNil bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			c.panicErr = &panicError{value: r, stack: debug.Stack()}
+		}
+
+		g.mu.Lock()
+		if !c.forgotten {
+			delete(g.calls, key)
+		}
+		// 在锁内捕获 shared 状态和 doneNil，
+		// 防止 Leader 返回路径无锁读产生 data race 和额外的堆内存访问。
+		shared = c.dups > 0
+		done := c.done
+		doneNil = done == nil
+		g.mu.Unlock()
+
+		// 唤醒大量 Follower 会触发调度器，必须放在锁外。
+		if done != nil {
+			close(done)
+		}
+		c.wg.Done()
+	}()
+
+	c.val, c.err = fn(ctx)
+	return
+}
+>>>>>>> REPLACE

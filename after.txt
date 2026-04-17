@@ -1,0 +1,16 @@
+goos: linux
+goarch: amd64
+pkg: github.com/oy3o/singleflight
+cpu: Intel(R) Xeon(R) Processor @ 2.30GHz
+Benchmark_Overhead_Std-4    	 3471106	       314.9 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Std-4    	 3971626	       307.9 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Std-4    	 3930524	       306.1 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Std-4    	 3839859	       296.6 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Std-4    	 3949042	       297.7 ns/op	      78 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4   	 5586430	       219.1 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4   	 5377351	       204.6 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4   	 5863021	       205.8 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4   	 5805006	       206.9 ns/op	       0 B/op	       0 allocs/op
+Benchmark_Overhead_Moon-4   	 5786902	       231.5 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/oy3o/singleflight	14.627s
