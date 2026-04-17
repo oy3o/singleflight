@@ -1,0 +1,26 @@
+<<<<<<< SEARCH
+	// 从 pool 复用 call 对象。不设置 pool.New，
+	// 因为 Get 返回 nil 时直接 new 比闭包更轻。
+	c, _ := g.pool.Get().(*call[V])
+	if c == nil {
+		c = new(call[V])
+	}
+	c.wg.Add(1)
+	c.dups = 0
+	c.forgotten = false
+	c.panicErr = nil
+	c.shared = false
+=======
+	// 从 pool 复用 call 对象。不设置 pool.New，
+	// 因为 Get 返回 nil 时直接 new 比闭包更轻。
+	c, _ := g.pool.Get().(*call[V])
+	if c == nil {
+		c = new(call[V])
+	} else {
+		c.dups = 0
+		c.forgotten = false
+		c.panicErr = nil
+		c.shared = false
+	}
+	c.wg.Add(1)
+>>>>>>> REPLACE
