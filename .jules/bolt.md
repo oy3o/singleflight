@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-27 - Pool object re-initialization optimization
+**Learning:** When using `sync.Pool`, we do not need to zero-initialize fields explicitly when a new object is allocated by `new(T)`, as Go handles zero-initialization for us.
+**Action:** When pulling an object from `sync.Pool`, conditionally reset its fields only if it's an existing object returned by `Get()` (e.g., using `else` branch of `if c == nil`). This avoids redundant assignments on fresh allocation, reducing overhead on cache misses.
