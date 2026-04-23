@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-31 - Reduce Heap Dereferences via Returned Status Variables
+**Learning:** Returning transient state flags (like whether a mutex was shared or whether a channel was nil) out of a deferred lock-release function is faster and safer than reading struct fields mapped to the heap after the lock is released. Returning these flags via named return values cleanly captures internal execution state without adding overhead to the struct's memory layout.
+**Action:** Remove boolean state flags like `shared` from structs if they are only used to pass transient state out of functions. Instead, capture and return these states directly using named return variables from the executing subroutine.
