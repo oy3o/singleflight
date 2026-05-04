@@ -17,3 +17,6 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+## 2024-05-18 - Avoiding Struct Fields for Deferred Lock-Protected Variables
+**Learning:** In high-performance concurrent code, returning cached local variables and boolean flags from deferred functions is an effective way to evaluate conditions after releasing a mutex without having to store them in heap-allocated struct fields. This prevents data races and reduces memory overhead and reads.
+**Action:** When a synchronization primitive needs to pass information computed under lock from a background goroutine back to the main goroutine (like a waitgroup/mutex context), evaluate the logic under lock in a `defer` block and return it as a named return variable rather than adding tracking fields to the synchronization struct itself.
