@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-07 - Return cached local variables from deferred functions in hot paths
+**Learning:** When evaluating conditions after releasing a mutex in high-performance concurrent code, prefer using locally cached variables evaluated under the lock over dereferencing heap-allocated struct fields to prevent data races and reduce memory reads. Returning cached local variables and boolean flags from deferred functions (by modifying named return variables) is an effective and safe way to achieve this.
+**Action:** Always return locally cached struct fields (like pointers, error variables, flags) as named return values from functions containing `defer` locks rather than re-reading the pointer's inner fields after returning.
