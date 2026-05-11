@@ -116,12 +116,11 @@ func (g *Group[K, V]) Do(
 	g.calls[key] = c
 	g.mu.Unlock()
 
-	g.doCall(c, key, fn, ctx)
+	var panicked bool
+	shared, panicked = g.doCall(c, key, fn, ctx)
 
 	val := c.val
 	err = c.err
-	shared = c.shared
-	panicked := c.panicErr != nil
 
 	// 仅当无 Follower 且无 panic 时回收。
 	// 有 Follower 意味着 done channel 已分配且 Follower 可能仍在读 c.val，
@@ -146,10 +145,11 @@ func (g *Group[K, V]) doCall(
 	key K,
 	fn func(context.Context) (V, error),
 	ctx context.Context,
-) {
+) (shared bool, panicked bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			c.panicErr = &panicError{value: r, stack: debug.Stack()}
+			panicked = true
 		}
 
 		g.mu.Lock()
@@ -158,7 +158,8 @@ func (g *Group[K, V]) doCall(
 		}
 		// 在锁内捕获 shared 状态，
 		// 防止 Leader 返回路径无锁读 dups 产生 data race。
-		c.shared = c.dups > 0
+		shared = c.dups > 0
+		c.shared = shared
 		done := c.done
 		g.mu.Unlock()
 
@@ -170,6 +171,7 @@ func (g *Group[K, V]) doCall(
 	}()
 
 	c.val, c.err = fn(ctx)
+	return
 }
 
 // Forget 使 Group 忘记指定 key。
