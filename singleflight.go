@@ -32,10 +32,6 @@ type call[V any] struct {
 
 	dups int
 
-	// shared 在持锁期间由 doCall 设置，
-	// 避免 Leader 返回时无锁读 dups 导致的 data race。
-	shared bool
-
 	forgotten bool
 }
 
@@ -110,17 +106,12 @@ func (g *Group[K, V]) Do(
 	c.dups = 0
 	c.forgotten = false
 	c.panicErr = nil
-	c.shared = false
 	// c.done 在回收前已被置为 nil，无需重置。
 
 	g.calls[key] = c
 	g.mu.Unlock()
 
-	g.doCall(c, key, fn, ctx)
-
-	val := c.val
-	err = c.err
-	shared = c.shared
+	val, err, shared := g.doCall(c, key, fn, ctx)
 	panicked := c.panicErr != nil
 
 	// 仅当无 Follower 且无 panic 时回收。
@@ -146,7 +137,7 @@ func (g *Group[K, V]) doCall(
 	key K,
 	fn func(context.Context) (V, error),
 	ctx context.Context,
-) {
+) (val V, err error, shared bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			c.panicErr = &panicError{value: r, stack: debug.Stack()}
@@ -156,9 +147,9 @@ func (g *Group[K, V]) doCall(
 		if !c.forgotten {
 			delete(g.calls, key)
 		}
-		// 在锁内捕获 shared 状态，
-		// 防止 Leader 返回路径无锁读 dups 产生 data race。
-		c.shared = c.dups > 0
+		// 在锁内捕获 shared 状态并通过命名返回值返回，
+		// 防止 Leader 返回路径无锁读 dups 产生 data race，并减少对 c 的堆内存访问。
+		shared = c.dups > 0
 		done := c.done
 		g.mu.Unlock()
 
@@ -169,7 +160,9 @@ func (g *Group[K, V]) doCall(
 		c.wg.Done()
 	}()
 
-	c.val, c.err = fn(ctx)
+	val, err = fn(ctx)
+	c.val, c.err = val, err
+	return
 }
 
 // Forget 使 Group 忘记指定 key。
