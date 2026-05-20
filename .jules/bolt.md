@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-24 - Shrinking Struct Size by Avoiding Intermediate State Fields
+**Learning:** In high-performance concurrent code, intermediate state flags (like a `shared` boolean used purely to communicate lock states to a caller after a function returns) should not be persisted on a struct (even a pooled one). Doing so needlessly increases the heap allocation footprint and reduces memory density in hot paths.
+**Action:** Always favor passing execution state between helper methods and their callers using named return variables rather than struct fields.
