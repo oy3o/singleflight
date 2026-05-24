@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-27 - Remove State Fields in Favor of Named Return Values
+**Learning:** Storing intermediate or local execution state (like boolean flags) as fields on a struct solely to pass that state between a helper function and its immediate caller is an anti-pattern in high-performance Go. It artificially inflates the memory footprint of the struct (which can be costly if pooled frequently) and forces unnecessary heap reads/writes.
+**Action:** Always prefer using named return values to pass internal state back to callers instead of bloating struct definitions, thus improving both cache locality and code readability.
