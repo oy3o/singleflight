@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-28 - Struct Memory Density: Pass State via Returns
+**Learning:** For high-performance synchronization primitives like singleflight, avoiding the storage of temporary execution state (such as the `shared` boolean flag) on structs reduces memory footprints and cacheline contention. By using named return variables on functions, state can be evaluated inside locks, captured in registers/local stack variables, and propagated efficiently.
+**Action:** Do not use temporary struct fields to avoid lock races when a named return variable achieves the same behavior. This minimizes padding, heap allocation size, and reduces pointer dereferencing on hot paths.
