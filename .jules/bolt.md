@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-27 - Eliminating Struct Padding and Redundant Field Reads for Temporary State
+**Learning:** Storing transient execution state (like the boolean `shared` flag) as a struct field (`c.shared`) when it is only needed locally by the caller increases struct size (due to padding/alignment) and introduces redundant heap writes/reads. By returning `shared` directly from `doCall` as a named return variable modified within a deferred function, we can safely pass this state under lock protection without polluting the `call` struct.
+**Action:** In high-performance concurrent code, prefer returning boolean flags and temporary state via named return variables (modified in `defer` if needed for lock protection) instead of adding fields to long-lived structs. This shrinks the heap footprint and improves cache density.
