@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-30 - Removing Unnecessary Boolean Field From Call Struct
+**Learning:** For `call[V]` struct, the `shared` boolean field was only used to pass the state from `doCall` defer function back to the `Do` function caller. Because `doCall` captures `shared` inside its defer function under the mutex lock (to avoid data races), we can remove the `shared` boolean field entirely from the struct and use a named return variable in `doCall` instead. Returning named variables modified in deferred functions is standard Go practice and reduces the `call` struct size and heap memory footprint by avoiding an extra field, improving cache locality.
+**Action:** When passing intermediate state computed in a deferred function back to the caller in high-performance Go, use named return variables instead of struct fields whenever possible to reduce object size.
