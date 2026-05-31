@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-30 - Temporary Struct Fields and Alignment
+**Learning:** Removing a boolean field from a struct in Go does not necessarily decrease the struct's size in memory due to word alignment and padding (e.g., removing a bool next to another bool when the struct contains an 8-byte int leaves the struct size unchanged at 72 bytes). However, removing temporary state variables from struct fields and passing them as named return variables prevents redundant memory writes (e.g. `c.shared = ...`) and simplifies the struct contract, even if it doesn't yield measurable byte savings.
+**Action:** Always measure struct sizes (using `unsafe.Sizeof`) before claiming memory reduction via field removal. Prefer using named return variables to pass transient state between function boundaries rather than caching it on long-lived structs, strictly to reduce write operations and improve data locality, but do not claim it as a strict memory optimization unless alignment confirms it.
