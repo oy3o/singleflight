@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2026-04-03 - Struct State vs. Stack Variables
+**Learning:** In highly concurrent code, storing temporary execution state (like the `shared` boolean flag in `singleflight`) as a field on a struct that is pooled and shared across goroutines is an anti-pattern when that state is only needed by the calling function. It requires careful locking and manual cleanup to prevent data races and state leaks across pool usages. By using named return variables, we can lift that temporary state off the heap-allocated struct entirely and safely evaluate it on the local execution stack.
+**Action:** When a helper function (like `doCall`) needs to pass an internal state back to its caller, return it directly via named return arguments instead of storing it on a shared struct. Always verify struct size impacts with `unsafe.Sizeof`, as memory layout and padding rules may mean removing a boolean field doesn't actually shrink the struct's byte size.
