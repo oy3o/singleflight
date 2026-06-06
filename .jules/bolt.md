@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-28 - Optimize Struct Fields via Named Return Variables
+**Learning:** Storing temporary execution state (e.g., intermediate boolean flags like `shared`) as fields on structs increases memory allocation per instantiation and introduces unnecessary field assignments. Passing such state as a named return variable in helper functions directly achieves the same concurrency safety without dirtying the struct contract, though memory size reduction depends on word alignment.
+**Action:** Prefer passing execution state via function parameters or named return variables over adding temporary flags to heap-allocated structs to save memory writes and simplify struct definitions.
