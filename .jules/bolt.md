@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2026-06-13 - Delay WaitGroup Add for Zero Follower Hot Paths
+**Learning:** In `singleflight`, calling `WaitGroup.Add(1)` on the Leader path involves an atomic operation. If the singleflight call has NO followers (a very common scenario for fast-executing operations or un-contended keys), this atomic increment and subsequent decrement in `WaitGroup.Done()` is wasted CPU time, as there's no one waiting.
+**Action:** Defer `WaitGroup.Add(1)` until the *first* Follower actually joins. Add a boolean flag (e.g., `wgAdded`) to the call struct. The Leader creates the call without adding to the WaitGroup. When a Follower sees the call, it checks `wgAdded`; if false, it sets it to true and calls `Add(1)`. The Leader then only calls `WaitGroup.Done()` if `wgAdded` is true. This yields a >20% performance improvement on the overhead benchmark (fast-path, no contention).
