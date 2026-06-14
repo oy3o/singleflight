@@ -37,6 +37,9 @@ type call[V any] struct {
 	shared bool
 
 	forgotten bool
+
+	// wgAdded 标记是否已调用 wg.Add(1)，推迟到 Follower 加入时才执行，避免原子操作开销。
+	wgAdded bool
 }
 
 // Do 对同一个 key 只允许一个 fn 在执行（Leader），
@@ -59,6 +62,10 @@ func (g *Group[K, V]) Do(
 
 	// Follower 路径
 	if c, ok := g.calls[key]; ok {
+		if !c.wgAdded {
+			c.wg.Add(1)
+			c.wgAdded = true
+		}
 		c.dups++
 
 		// context.Background() 的 Done() 返回 nil，
@@ -106,11 +113,11 @@ func (g *Group[K, V]) Do(
 	if c == nil {
 		c = new(call[V])
 	}
-	c.wg.Add(1)
 	c.dups = 0
 	c.forgotten = false
 	c.panicErr = nil
 	c.shared = false
+	c.wgAdded = false
 	// c.done 在回收前已被置为 nil，无需重置。
 
 	g.calls[key] = c
@@ -160,13 +167,16 @@ func (g *Group[K, V]) doCall(
 		// 防止 Leader 返回路径无锁读 dups 产生 data race。
 		c.shared = c.dups > 0
 		done := c.done
+		wgAdded := c.wgAdded
 		g.mu.Unlock()
 
 		// 唤醒大量 Follower 会触发调度器，必须放在锁外。
 		if done != nil {
 			close(done)
 		}
-		c.wg.Done()
+		if wgAdded {
+			c.wg.Done()
+		}
 	}()
 
 	c.val, c.err = fn(ctx)
