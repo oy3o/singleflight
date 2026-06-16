@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2026-04-02 - Delay WaitGroup Atomics on Uncontended Paths
+**Learning:** For synchronization primitives like `sync.WaitGroup` embedded inside high-performance structs (like `call` in singleflight), performing atomic operations (e.g., `Add(1)`) on the fast, uncontended path adds unnecessary overhead. If the `WaitGroup` is only ever waited on when another concurrent operation (Follower) joins, the atomic increment can be delayed until that Follower actually arrives.
+**Action:** Use a boolean flag embedded within existing struct padding (to ensure no memory footprint increase) to track initialization. Delay atomic state modifications until strictly required by contention to optimize the single-caller hot path.
