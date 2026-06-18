@@ -37,6 +37,8 @@ type call[V any] struct {
 	shared bool
 
 	forgotten bool
+
+	wgAdded bool
 }
 
 // Do 对同一个 key 只允许一个 fn 在执行（Leader），
@@ -59,6 +61,11 @@ func (g *Group[K, V]) Do(
 
 	// Follower 路径
 	if c, ok := g.calls[key]; ok {
+		// Delay atomic Add(1) until the first follower joins to avoid overhead on the fast path.
+		if !c.wgAdded {
+			c.wg.Add(1)
+			c.wgAdded = true
+		}
 		c.dups++
 
 		// context.Background() 的 Done() 返回 nil，
@@ -106,11 +113,11 @@ func (g *Group[K, V]) Do(
 	if c == nil {
 		c = new(call[V])
 	}
-	c.wg.Add(1)
 	c.dups = 0
 	c.forgotten = false
 	c.panicErr = nil
 	c.shared = false
+	c.wgAdded = false
 	// c.done 在回收前已被置为 nil，无需重置。
 
 	g.calls[key] = c
@@ -166,7 +173,10 @@ func (g *Group[K, V]) doCall(
 		if done != nil {
 			close(done)
 		}
-		c.wg.Done()
+		// Only call Done if a follower actually joined and incremented the WaitGroup.
+		if c.wgAdded {
+			c.wg.Done()
+		}
 	}()
 
 	c.val, c.err = fn(ctx)
