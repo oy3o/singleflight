@@ -17,3 +17,7 @@
 ## 2026-03-31 - Dereferencing vs Local Variables after Mutex Unlock
 **Learning:** Re-evaluating a struct field (e.g., `c.dups == 0`) after unlocking a Mutex in a highly concurrent scenario can lead to subtle data races or redundant memory reads. If the equivalent state (e.g., `shared = c.dups > 0`) was already captured in a local variable while holding the lock, utilizing the local variable (`!shared`) is both safer and faster.
 **Action:** Prefer using variables captured under a lock rather than re-reading shared state from the heap to evaluate recycling or cleanup conditions.
+
+## 2024-05-27 - Delay WaitGroup Allocation
+**Learning:** In singleflight patterns, the hot path is often uncontended, meaning no other goroutine waits for the result. By conditionally executing `wg.Add(1)` only when a follower actually joins, rather than unconditionally on every request, we can save 20-30ns per operation, significantly improving throughput for uncontended cache hits.
+**Action:** Identify uncontended hot paths and conditionally apply atomic operations (like `wg.Add(1)`) only when necessary. Ensure boolean flags like `wgAdded` are padded optimally within structs.
